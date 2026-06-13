@@ -9,6 +9,8 @@ const INVIDIOUS = [
   'https://invidious.privacydev.net',
   'https://iv.melmac.space',
   'https://invidious.fdn.fr',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.io.lol',
 ];
 
 function fetchJson(url) {
@@ -35,29 +37,43 @@ app.get('/audio', async (req, res) => {
     return res.status(400).json({ error: 'Invalid videoId' });
   }
 
+  const errors = [];
+
   for (const base of INVIDIOUS) {
     try {
+      console.log(`▶ Probando ${base}`);
       const { status, body } = await fetchJson(`${base}/api/v1/videos/${videoId}`);
-      if (status !== 200) continue;
+      console.log(`  status: ${status}, keys: ${Object.keys(body).join(',')}`);
+
+      if (status !== 200) {
+        errors.push(`${base}: HTTP ${status}`);
+        continue;
+      }
 
       const streams = (body.adaptiveFormats || [])
         .filter(f => f.type && f.type.startsWith('audio/'))
         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
-      if (streams.length === 0) continue;
+      console.log(`  streams de audio encontrados: ${streams.length}`);
+
+      if (streams.length === 0) {
+        errors.push(`${base}: sin streams de audio`);
+        continue;
+      }
 
       const url = streams[0].url;
-      if (!url) continue;
+      if (!url) { errors.push(`${base}: url vacía`); continue; }
 
-      console.log(`✅ Audio URL obtenida de ${base}`);
+      console.log(`✅ URL obtenida de ${base}`);
       return res.json({ url, videoId });
     } catch (e) {
-      console.log(`❌ ${base} falló: ${e.message}`);
+      console.log(`  error: ${e.message}`);
+      errors.push(`${base}: ${e.message}`);
       continue;
     }
   }
 
-  res.status(500).json({ error: 'No se pudo obtener audio de ninguna instancia' });
+  res.status(500).json({ error: 'No se pudo obtener audio', details: errors });
 });
 
 app.get('/info', async (req, res) => {
