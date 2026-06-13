@@ -1,18 +1,12 @@
-const express  = require('express');
-const { exec } = require('child_process');
-const app      = express();
+const path = require('path');
 
-// Detecta dónde está yt-dlp al arrancar
-let ytdlpPath = 'yt-dlp';
-exec('which yt-dlp || which yt_dlp || echo notfound', (err, stdout) => {
-  const found = stdout.trim().split('\n')[0];
-  if (found && found !== 'notfound') {
-    ytdlpPath = found;
-    console.log(`yt-dlp encontrado en: ${ytdlpPath}`);
-  } else {
-    console.warn('yt-dlp NO encontrado. Las descargas fallarán.');
-  }
-});
+let ytdlpPath = path.join(__dirname, 'yt-dlp');
+// Verifica si existe el binario local, si no intenta el del sistema
+const fs = require('fs');
+if (!fs.existsSync(ytdlpPath)) {
+  ytdlpPath = 'yt-dlp'; // fallback al sistema
+}
+console.log(`Usando yt-dlp en: ${ytdlpPath}`);
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'TuneLoad API', ytdlp: ytdlpPath });
