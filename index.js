@@ -2,8 +2,20 @@ const express  = require('express');
 const { exec } = require('child_process');
 const app      = express();
 
+// Detecta dónde está yt-dlp al arrancar
+let ytdlpPath = 'yt-dlp';
+exec('which yt-dlp || which yt_dlp || echo notfound', (err, stdout) => {
+  const found = stdout.trim().split('\n')[0];
+  if (found && found !== 'notfound') {
+    ytdlpPath = found;
+    console.log(`yt-dlp encontrado en: ${ytdlpPath}`);
+  } else {
+    console.warn('yt-dlp NO encontrado. Las descargas fallarán.');
+  }
+});
+
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'TuneLoad API' });
+  res.json({ status: 'ok', service: 'TuneLoad API', ytdlp: ytdlpPath });
 });
 
 app.get('/audio', (req, res) => {
@@ -11,7 +23,7 @@ app.get('/audio', (req, res) => {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     return res.status(400).json({ error: 'Invalid videoId' });
   }
-  const cmd = `yt-dlp --no-playlist -f "bestaudio[ext=m4a]/bestaudio/best" --get-url "https://www.youtube.com/watch?v=${videoId}"`;
+  const cmd = `${ytdlpPath} --no-playlist -f "bestaudio[ext=m4a]/bestaudio/best" --get-url "https://www.youtube.com/watch?v=${videoId}"`;
   exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
     if (err) return res.status(500).json({ error: 'yt-dlp failed', detail: stderr });
     const url = stdout.trim().split('\n')[0];
@@ -25,7 +37,7 @@ app.get('/info', (req, res) => {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     return res.status(400).json({ error: 'Invalid videoId' });
   }
-  const cmd = `yt-dlp --no-playlist --dump-json "https://www.youtube.com/watch?v=${videoId}"`;
+  const cmd = `${ytdlpPath} --no-playlist --dump-json "https://www.youtube.com/watch?v=${videoId}"`;
   exec(cmd, { timeout: 20000 }, (err, stdout) => {
     if (err) return res.status(500).json({ error: 'Could not get info' });
     try {
