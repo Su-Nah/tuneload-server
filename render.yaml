@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: tuneload-server
+    env: node
+    plan: free
+    buildCommand: npm install && pip install yt-dlp
+    startCommand: node index.js
