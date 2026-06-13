@@ -1,11 +1,12 @@
-const path = require('path');
+const express  = require('express');
+const { exec } = require('child_process');
+const path     = require('path');
+const fs       = require('fs');
+const app      = express();
 
-let ytdlpPath = path.join(__dirname, 'yt-dlp');
-// Verifica si existe el binario local, si no intenta el del sistema
-const fs = require('fs');
-if (!fs.existsSync(ytdlpPath)) {
-  ytdlpPath = 'yt-dlp'; // fallback al sistema
-}
+// Detecta ruta de yt-dlp
+const localBin = path.join(__dirname, 'yt-dlp');
+const ytdlpPath = fs.existsSync(localBin) ? localBin : 'yt-dlp';
 console.log(`Usando yt-dlp en: ${ytdlpPath}`);
 
 app.get('/', (req, res) => {
@@ -17,7 +18,7 @@ app.get('/audio', (req, res) => {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     return res.status(400).json({ error: 'Invalid videoId' });
   }
-  const cmd = `${ytdlpPath} --no-playlist -f "bestaudio[ext=m4a]/bestaudio/best" --get-url "https://www.youtube.com/watch?v=${videoId}"`;
+  const cmd = `"${ytdlpPath}" --no-playlist -f "bestaudio[ext=m4a]/bestaudio/best" --get-url "https://www.youtube.com/watch?v=${videoId}"`;
   exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
     if (err) return res.status(500).json({ error: 'yt-dlp failed', detail: stderr });
     const url = stdout.trim().split('\n')[0];
@@ -31,7 +32,7 @@ app.get('/info', (req, res) => {
   if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
     return res.status(400).json({ error: 'Invalid videoId' });
   }
-  const cmd = `${ytdlpPath} --no-playlist --dump-json "https://www.youtube.com/watch?v=${videoId}"`;
+  const cmd = `"${ytdlpPath}" --no-playlist --dump-json "https://www.youtube.com/watch?v=${videoId}"`;
   exec(cmd, { timeout: 20000 }, (err, stdout) => {
     if (err) return res.status(500).json({ error: 'Could not get info' });
     try {
