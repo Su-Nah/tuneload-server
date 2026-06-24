@@ -3,7 +3,7 @@ const https   = require('https');
 const http    = require('http');
 const app     = express();
 
-// Instancias públicas de Invidious ordenadas por estabilidad
+// Instancias públicas de Invidious — si una cae, prueba la siguiente
 const INVIDIOUS = [
   'https://inv.nadeko.net',
   'https://invidious.privacydev.net',
@@ -16,14 +16,16 @@ const INVIDIOUS = [
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
-    lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+    const req = lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 10000 }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
-        catch { reject(new Error('Parse error')); }
+        catch { resolve({ status: res.statusCode, body: { error: 'parse_error', raw: data.slice(0, 200) } }); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
@@ -87,8 +89,8 @@ app.get('/info', async (req, res) => {
       const { status, body } = await fetchJson(`${base}/api/v1/videos/${videoId}`);
       if (status !== 200) continue;
       return res.json({
-        title:     body.title     || `Video ${videoId}`,
-        author:    body.author    || 'YouTube',
+        title:     body.title         || `Video ${videoId}`,
+        author:    body.author        || 'YouTube',
         duration:  body.lengthSeconds || 0,
         thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
       });
